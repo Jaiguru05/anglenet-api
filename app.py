@@ -8,8 +8,6 @@ from PIL import Image
 
 import torchvision.transforms as transforms
 
-import numpy as np
-
 import io
 
 from anglenet_models.anglenet import AngleNet
@@ -25,15 +23,10 @@ app = FastAPI()
 # ============================================================
 
 app.add_middleware(
-
     CORSMiddleware,
-
     allow_origins=["*"],
-
     allow_credentials=True,
-
     allow_methods=["*"],
-
     allow_headers=["*"],
 )
 
@@ -53,13 +46,23 @@ print("Loading AngleNet...")
 
 model = AngleNet()
 
-model.load_state_dict(
+# ================= FIXED PART =================
 
-    torch.load(
-        "anglenet_weights.pth",
-        map_location=device
-    )
+checkpoint = torch.load(
+    "anglenet_weights.pth",
+    map_location=device,
+    weights_only=False
 )
+
+# If checkpoint contains state_dict
+if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+    model.load_state_dict(checkpoint["state_dict"])
+
+# Direct state_dict
+else:
+    model.load_state_dict(checkpoint)
+
+# ============================================================
 
 model.to(device)
 
@@ -72,9 +75,7 @@ print("✅ AngleNet Loaded")
 # ============================================================
 
 transform = transforms.Compose([
-
     transforms.Resize((224, 224)),
-
     transforms.ToTensor()
 ])
 
@@ -83,13 +84,9 @@ transform = transforms.Compose([
 # ============================================================
 
 severity_labels = [
-
     "Normal",
-
     "Mild",
-
     "Moderate",
-
     "Severe"
 ]
 
@@ -102,7 +99,6 @@ severity_labels = [
 def root():
 
     return {
-
         "message": "AngleNet API Running"
     }
 
@@ -113,7 +109,7 @@ def root():
 @app.post("/predict")
 
 async def predict(
-    file: UploadFile = File(...)
+        file: UploadFile = File(...)
 ):
 
     try:
@@ -125,10 +121,8 @@ async def predict(
         image_bytes = await file.read()
 
         image = Image.open(
-
             io.BytesIO(image_bytes)
-
-        ).convert("RGBA")
+        ).convert("RGB")
 
         # ====================================================
         # TRANSFORM
@@ -151,12 +145,10 @@ async def predict(
             angle = angle_pred.item()
 
             severity_idx = torch.argmax(
-
                 F.softmax(
                     severity_pred,
                     dim=1
                 )
-
             ).item()
 
         severity = severity_labels[
@@ -190,10 +182,8 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-
-        app,
-
+        "app:app",
         host="0.0.0.0",
-
-        port=8000
+        port=8000,
+        reload=False
     )
