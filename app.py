@@ -122,7 +122,7 @@ async def predict(
 
         image = Image.open(
             io.BytesIO(image_bytes)
-        ).convert("RGB")
+        ).convert("RGBA")
 
         # ====================================================
         # TRANSFORM
